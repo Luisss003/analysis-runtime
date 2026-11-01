@@ -4,7 +4,7 @@ OPT := opt-19
 
 PLUGIN := build/libCallScan.so
 PASS_SOURCES := $(wildcard *.cpp *.h)
-RUNTIME := ../analysis-runtime/runtime.c ../analysis-runtime/event_log.c ../analysis-runtime/pointer_analysis.c
+RUNTIME := ../analysis-runtime/analysis-runtime.c ../analysis-runtime/event_log.c ../analysis-runtime/pointer_analysis.c
 RUNTIME_HEADERS := $(wildcard ../analysis-runtime/*.h)
 
 .PHONY: all run clean
