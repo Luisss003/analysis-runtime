@@ -85,7 +85,7 @@ void record_free(void *ptr){
         if(alloc_gens[i].usable_base == ptr && alloc_gens[i].state == LIVE){
             alloc_gens[i].state = FREED;
             alloc_gens[i].free_event_id = write_event_log(GENERATION_FREE, &alloc_gens[i]);
-            break;
+            return;
         }
     }
 
