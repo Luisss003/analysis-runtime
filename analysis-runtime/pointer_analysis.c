@@ -16,12 +16,6 @@ PointerMetadata ptr_preprocess(AllocationGeneration *gen, void *addr, void *ptr_
     ptr.generation = gen->generation;
     ptr.addr = addr;
     ptr.ptr_location = ptr_location;
-
-    fprintf(stderr, "Pointer Struct Created: id: %d, gen: %d, points_to: %p, pointer_location: %p\n", 
-                    ptr.id,
-                    ptr.generation,
-                    ptr.addr,
-                    ptr.ptr_location);
                     
     id++;
     return ptr;
