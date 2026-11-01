@@ -104,6 +104,14 @@ int write_event_log(EventType event_type, void *ptr){
             exit(0);
         } 
     }
+    else if(event_type == MALLOC_OVERLAP){
+        int written = snprintf(final_log, 255, "[EventType=mo,EventID=%d]\n",
+                    event_id);
+        if(write(event_log_fd, final_log, written) == -1){
+            perror("Failed to write to event log file");
+            exit(0);
+        } 
+    }
     else{
         fprintf(stderr, "Unknown event type: %d\n", event_type);
         exit(0);

@@ -23,13 +23,23 @@ void record_malloc(void *ptr, size_t size, void *ptr_location){
         exit(EXIT_FAILURE);
     }
 
-    //1. Check if ptr using reclaimed chunk
+    //1. Check if ptr using reclaimed chunk or potentially overlapping alloc
     int i = 0;
     int reuse_flag = 0;
     for(i = current_generation - 1; i >= 0; i--){
         if(alloc_gens[i].usable_base == ptr){
-            reuse_flag = 1;
-            break;
+            if(alloc_gens[i].state == FREED){
+                reuse_flag = 1;
+                break;
+            }
+            else if(alloc_gens[i].state == LIVE){
+                write_event_log(MALLOC_OVERLAP, ptr);
+                break;
+            }
+            else{
+                fprintf(stderr, "Unknown allocation state for generation %d\n", i);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
