@@ -51,12 +51,10 @@ void record_malloc(void *ptr, size_t size, void *ptr_location){
     alloc_gens[current_generation].free_event_id = -1;
 
     //3. Associate ptr with new generation
-    PointerMetadata pd = ptr_preprocess(&alloc_gens[current_generation], ptr, ptr_location);
-    if(pd.addr == NULL) {
-        exit(0);
-    }
+    PointerMetadata pd = preprocess(&alloc_gens[current_generation], ptr, ptr_location);
+
     for(int i = 0; i < 10; i++){
-        if(alloc_gens[current_generation].pointers[i].addr == NULL){
+        if(alloc_gens[current_generation].pointers[i].points_to == NULL){
             alloc_gens[current_generation].pointers[i] = pd;
             break;
         }
