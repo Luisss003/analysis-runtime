@@ -82,9 +82,21 @@ void record_free(void *ptr){
     //This works because free ONLY works with an allocations base; not within the alloc itself
     for(int i = current_generation - 1; i >= 0; i--){
         //Found our newest generation (ASSUMES NO OVERLAP, SO FIX THAT LATER)
-        if(alloc_gens[i].usable_base == ptr && alloc_gens[i].state == LIVE){
-            alloc_gens[i].state = FREED;
-            alloc_gens[i].free_event_id = write_event_log(GENERATION_FREE, &alloc_gens[i]);
+        if(alloc_gens[i].usable_base == ptr){
+            if(alloc_gens[i].state == LIVE){
+                alloc_gens[i].state = FREED;
+                alloc_gens[i].free_event_id = write_event_log(GENERATION_FREE, &alloc_gens[i]);
+                return;
+            }
+            else if(alloc_gens[i].state == FREED){
+                //Log the free, but clarify no generation was altered
+                write_event_log(FREE_DOUBLE, ptr);
+                return;
+            }
+            else{
+                fprintf(stderr, "Unknown allocation state for generation %d\n", i);
+                exit(EXIT_FAILURE);
+            }
             return;
         }
     }
