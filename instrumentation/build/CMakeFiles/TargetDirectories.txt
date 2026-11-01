@@ -1,0 +1,9 @@
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/intrinsics_gen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/omp_gen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/acc_gen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/ARMTargetParserTableGen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/AArch64TargetParserTableGen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/RISCVTargetParserTableGen.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/CallScan.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/edit_cache.dir
+/home/sputnik/thesis/instrumentation/build/CMakeFiles/rebuild_cache.dir
