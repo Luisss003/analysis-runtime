@@ -1,7 +1,9 @@
 #include "pointer_analysis.h"
 #include "alloc_metadata.h"
+#include "event_log.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 PointerMetadata ptr_metadata[100];
 int id = 0;
@@ -18,7 +20,8 @@ PointerMetadata preprocess(AllocationGeneration *gen, void *points_to, void *loc
     ptr.generation = gen->generation;
     ptr.points_to = points_to;
     ptr.location = location;
-                    
+                   
+    ptr_metadata[id] = ptr;
     id++;
     return ptr;
 }   
@@ -37,16 +40,17 @@ PointerMetadata preprocess(AllocationGeneration *gen, void *points_to, void *loc
  * 8. Function Return: int *foo(); int *a = foo();
  * 9. Conditional Assignment: int *a = (cond) ? b : c;
  */
-void ptr_shallow_copy(void *orig, void *copy, void *copy_location, PTR_COPY_TYPE copy_type){
+void ptr_shallow_copy(void *orig_location, void *copy_value, void *copy_location){
     //1. Find original pointer metadata
     PointerMetadata *orig_ptr = NULL;
     for(int i = 0; i < id; i++){
-        if(ptr_metadata[i].location == orig){
+        if(ptr_metadata[i].location == orig_location){
             orig_ptr = &ptr_metadata[i];
             break;
         }
-
     }
+
+    printf("test\n");
 
     //If the original ptr MD isn't found, its likely not associated with the heap, so ignore.
     //TODO: Add mmap + munmap support since those are other ways of heap allocations.
@@ -55,12 +59,33 @@ void ptr_shallow_copy(void *orig, void *copy, void *copy_location, PTR_COPY_TYPE
         return;
     }
 
-    //2. Create a new pointer metadata for the copy
+    //2. Check if we are creating a new pointer, or reassigning an existing pointer
+    for(int i = 0; i < id; i++){
+        if (ptr_metadata[i].location == copy_location){
+            fprintf(stderr, "Reassigned\n");
+            //Pointer reassigned, so update stored metadata with provenance of original/src pointer
+            ptr_metadata[i].generation = orig_ptr->generation;
+            ptr_metadata[i].points_to = orig_ptr->points_to;
+            ptr_metadata[i].reassign_flag = 1;
+            write_event_log(POINTER_PROVENANCE_PROPOGATION, orig_ptr, &ptr_metadata[i]);
+            return;
+        }
+    }
+    fprintf(stderr, "No reassign\n");
     PointerMetadata copy_ptr;
     copy_ptr.id = id;
     copy_ptr.generation = orig_ptr->generation;
     copy_ptr.points_to = orig_ptr->points_to;
+    copy_ptr.location = copy_location;
+    copy_ptr.reassign_flag = 0;
 
-
+    //3. Store the new pointer metadata in the global array
+    if(memcpy(&ptr_metadata[id], &copy_ptr, sizeof(copy_ptr)) == NULL) {
+        exit(0);
+    }
+    write_event_log(POINTER_PROVENANCE_PROPOGATION, orig_ptr, &ptr_metadata[id]);
+    
     id++;
 }
+
+void ptr_arithmetic(void *src, void *dst){
