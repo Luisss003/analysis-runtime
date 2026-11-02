@@ -23,7 +23,7 @@ int open_event_log(){
     return event_log_fd;
 }
 
-int write_event_log(EventType event_type, void *ptr){
+int write_event_log(EventType event_type, void *ptr, void *ptr2){
     if(event_log_fd == -1){
         open_event_log();
     }
@@ -162,6 +162,20 @@ int write_event_log(EventType event_type, void *ptr){
             perror("Failed to write to event log file");
             exit(0);
         } 
+    }
+    else if(event_type == POINTER_PROVENANCE_PROPOGATION) {
+        PointerMetadata *src = (PointerMetadata *)ptr;
+        PointerMetadata *dst = (PointerMetadata *)ptr2; 
+        
+        int written = snprintf(final_log, 255 ,"[EventType=pp,EventID=%d,OriginalPointer=%p,CopyPointer=%p]\n", 
+            event_id, 
+            src->location,
+            dst->location);
+        if(write(event_log_fd, final_log, written) == -1){
+            perror("Failed to write to event log file");
+            exit(0);
+        }
+        fprintf(stderr, "Pass?\n");
     }
     else{
         fprintf(stderr, "Unknown event type: %d\n", event_type);

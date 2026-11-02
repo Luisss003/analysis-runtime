@@ -15,7 +15,7 @@ AllocationGeneration alloc_gens[100];
 void record_malloc(void *ptr, size_t size, void *ptr_location){
     //Check for failed malloc, and if so, log it and return
     if(ptr == NULL){
-        write_event_log(MALLOC_FAILED, NULL);
+        write_event_log(MALLOC_FAILED, NULL, NULL);
         return;
     }
     if((size_t)current_generation >= sizeof alloc_gens / sizeof alloc_gens[0]){
@@ -33,7 +33,7 @@ void record_malloc(void *ptr, size_t size, void *ptr_location){
                 break;
             }
             else if(alloc_gens[i].state == LIVE){
-                write_event_log(MALLOC_OVERLAP, ptr);
+                write_event_log(MALLOC_OVERLAP, ptr, NULL);
                 break;
             }
             else{
@@ -62,10 +62,10 @@ void record_malloc(void *ptr, size_t size, void *ptr_location){
 
     //4. Write allocation generation creation to event log, and store log ID
     if(reuse_flag == 0){
-        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION, &alloc_gens[current_generation]);
+        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION, &alloc_gens[current_generation], NULL);
     }
     else{
-        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION_REUSE, &alloc_gens[current_generation]);
+        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION_REUSE, &alloc_gens[current_generation], NULL);
     }
     
     current_generation++; 
@@ -80,7 +80,7 @@ void record_free(void *ptr){
     //1. Check if arg to free() is NULL or its a non-heap pointer
     if(ptr == NULL) {
        //Log the free, but clarify no generation was altered
-       write_event_log(FREE_NULL, NULL);
+       write_event_log(FREE_NULL, NULL, NULL);
        return;
     }
 
@@ -93,12 +93,12 @@ void record_free(void *ptr){
         if(alloc_gens[i].usable_base == ptr){
             if(alloc_gens[i].state == LIVE){
                 alloc_gens[i].state = FREED;
-                alloc_gens[i].free_event_id = write_event_log(GENERATION_FREE, &alloc_gens[i]);
+                alloc_gens[i].free_event_id = write_event_log(GENERATION_FREE, &alloc_gens[i], NULL);
                 return;
             }
             else if(alloc_gens[i].state == FREED){
                 //Log the free, but clarify no generation was altered
-                write_event_log(FREE_DOUBLE, ptr);
+                write_event_log(FREE_DOUBLE, ptr, NULL);
                 return;
             }
             else{
@@ -110,5 +110,5 @@ void record_free(void *ptr){
     }
 
     //If nothing matches, likely passed a fake allocation or stack addr, so log it
-    write_event_log(FREE_INVALID, ptr);
+    write_event_log(FREE_INVALID, ptr, NULL);
 }

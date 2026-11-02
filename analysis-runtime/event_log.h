@@ -12,13 +12,14 @@ typedef enum  {
     FREE_NULL,
     FREE_DOUBLE,
     MALLOC_OVERLAP,
+    POINTER_PROVENANCE_PROPOGATION,
     MALLOC_FAILED,
     FREE_INVALID,
     POINTER_COPY,
     POINTER_ALLOCATION,
 } EventType;
 
-int write_event_log(EventType event_type, void *ptr);
+int write_event_log(EventType event_type, void *ptr, void *ptr2);
 void read_event_log();
 void close_event_log();
 int open_event_log();
