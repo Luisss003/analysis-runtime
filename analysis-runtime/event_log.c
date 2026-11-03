@@ -177,6 +177,19 @@ int write_event_log(EventType event_type, void *ptr, void *ptr2){
         }
         fprintf(stderr, "Pass?\n");
     }
+    else if(event_type == POINTER_ARITHMETIC) {
+        PointerMetadata *src = (PointerMetadata *)ptr;
+        PointerMetadata *dst = (PointerMetadata *)ptr2; 
+        
+        int written = snprintf(final_log, 255 ,"[EventType=pa,EventID=%d,OriginalPointer=%p,DerivedPointer=%p]\n", 
+            event_id, 
+            src->points_to,
+            dst->points_to);
+        if(write(event_log_fd, final_log, written) == -1){
+            perror("Failed to write to event log file");
+            exit(0);
+        }
+    }
     else{
         fprintf(stderr, "Unknown event type: %d\n", event_type);
         exit(0);

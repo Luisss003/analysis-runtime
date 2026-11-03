@@ -73,6 +73,25 @@ static bool isMallocResult(Value *V) {
            Callee->getName() == "malloc";
 }
 
+/**
+ * Pointer Arithmetic could have an expression like: ptr + 2 + 5,
+ * so we cant blindly accept the first GEP we see
+ */
+static Value *getGEPBase(Value *V) {
+
+    while (true) {
+        V = V->stripPointerCasts();
+
+        auto *GEP = dyn_cast<GetElementPtrInst>(V);
+
+        if (!GEP)
+            return V;
+
+        V = GEP->getPointerOperand();
+    }
+}
+
+
 struct CallScan : PassInfoMixin<CallScan> {
 
     PreservedAnalyses run(
@@ -115,12 +134,20 @@ struct CallScan : PassInfoMixin<CallScan> {
                 )
             );
 
+        FunctionCallee ptr_arithmetic = 
+        M.getOrInsertFunction(
+            "ptr_arithmetic",
+            FunctionType::get(
+                VoidTy,
+                {PtrTy, PtrTy, PtrTy, PtrTy},
+                false
+            )
+        );
+
         SmallVector<Instruction *, 128> WorkList;
 
-        // Snapshot original instructions before inserting
-        // instrumentation.
+        // Store all instructs in module for processing.
         for (Function &F : M) {
-
             if (F.isDeclaration())
                 continue;
 
@@ -132,18 +159,13 @@ struct CallScan : PassInfoMixin<CallScan> {
 
         for (Instruction *I : WorkList) {
 
-            // -----------------------------------
-            // Pointer stores
-            // -----------------------------------
             if (auto *Store = dyn_cast<StoreInst>(I)) {
 
                 Value *Stored = Store->getValueOperand();
 
-                // Only pointer-valued stores.
                 if (!Stored->getType()->isPointerTy())
                     continue;
 
-                // Target ordinary x86-64 address space.
                 if (Stored->getType()
                         ->getPointerAddressSpace() != 0)
                     continue;
@@ -156,7 +178,7 @@ struct CallScan : PassInfoMixin<CallScan> {
                     continue;
 
                 // malloc's initial storage association
-                // is handled by record_malloc instead.
+                // is handled by record_malloc.
                 if (isMallocResult(Stored))
                     continue;
 
@@ -167,16 +189,63 @@ struct CallScan : PassInfoMixin<CallScan> {
 
                 IRBuilder<> Builder(Next);
 
+                // -----------------------------------
+                // Pointer arithmetic propagation
+                // -----------------------------------
+                Value *Stripped = Stored->stripPointerCasts();
+
+                if (auto *GEP =
+                        dyn_cast<GetElementPtrInst>(Stripped)) {
+
+                    // Trace through consecutive GEPs.
+                    Value *OriginalValue =
+                        getGEPBase(GEP->getPointerOperand());
+
+                    // Find the original pointer variable's
+                    // storage location.
+                    Value *SourceLocation =
+                        getSourceLocation(OriginalValue, Builder);
+
+                    if (SourceLocation) {
+
+                        Builder.CreateCall(
+                            ptr_arithmetic,
+                            {
+                                SourceLocation,
+                                OriginalValue,
+                                Stored,
+                                Destination
+                            }
+                        );
+
+                    } else {
+
+                        // No known source storage location.
+                        // Invalidate any prior destination
+                        // association using existing behavior.
+                        Builder.CreateCall(
+                            ptr_shallow_copy,
+                            {
+                                ConstantPointerNull::get(PtrTy),
+                                Stored,
+                                Destination
+                            }
+                        );
+                    }
+
+                    // Do not also record a shallow copy.
+                    continue;
+                }
+
+                // -----------------------------------
+                // Ordinary pointer shallow copies
+                // -----------------------------------
                 Value *Source = getSourceLocation(
                     Stored, Builder
                 );
 
-                // Unknown source is represented by NULL.
-                // Runtime will invalidate existing metadata
-                // for the destination in this case.
                 if (!Source)
-                    Source =
-                        ConstantPointerNull::get(PtrTy);
+                    Source = ConstantPointerNull::get(PtrTy);
 
                 Builder.CreateCall(
                     ptr_shallow_copy,
@@ -190,9 +259,11 @@ struct CallScan : PassInfoMixin<CallScan> {
                 continue;
             }
 
+
             // -----------------------------------
-            // malloc / free
+            // malloc / free Calls
             // -----------------------------------
+            //Extract name of function called from instruct
             auto *Call = dyn_cast<CallInst>(I);
 
             if (!Call)
@@ -206,7 +277,6 @@ struct CallScan : PassInfoMixin<CallScan> {
             StringRef Name = Callee->getName();
 
             if (Name == "malloc") {
-
                 Instruction *Next = Call->getNextNode();
 
                 if (!Next)
@@ -248,7 +318,6 @@ struct CallScan : PassInfoMixin<CallScan> {
                     }
                 );
             }
-
             else if (Name == "free") {
 
                 // Record the attempt before execution.

@@ -17,6 +17,7 @@ typedef enum  {
     FREE_INVALID,
     POINTER_COPY,
     POINTER_ALLOCATION,
+    POINTER_ARITHMETIC
 } EventType;
 
 int write_event_log(EventType event_type, void *ptr, void *ptr2);

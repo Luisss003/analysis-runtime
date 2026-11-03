@@ -50,8 +50,6 @@ void ptr_shallow_copy(void *orig_location, void *copy_value, void *copy_location
         }
     }
 
-    printf("test\n");
-
     //If the original ptr MD isn't found, its likely not associated with the heap, so ignore.
     //TODO: Add mmap + munmap support since those are other ways of heap allocations.
     if(orig_ptr == NULL){
@@ -88,4 +86,51 @@ void ptr_shallow_copy(void *orig_location, void *copy_value, void *copy_location
     id++;
 }
 
-void ptr_arithmetic(void *src, void *dst){
+void ptr_arithmetic( void *src_location, void *src_value, void *derived_value, 
+    void *dst_location) {
+        //1. Find the original pointer metadata
+        PointerMetadata *src_metadata = resolve_metadata(src_location, src_value);
+        if(src_metadata == NULL) {
+            fprintf(stderr, "ptr_arithmetic fail\n");
+            exit(0);
+        }
+
+        /**
+         * 2. Handle inc/dec OR self reassignment (i.e a = a + 4)
+         * Simply update metadata
+         */
+        if(src_location == dst_location) {
+            //Create of old metadata for event logging
+            PointerMetadata old_metadata = *src_metadata;
+            src_metadata->points_to = derived_value;
+            src_metadata->reassign_flag = 1;
+            write_event_log(POINTER_ARITHMETIC, &old_metadata, src_metadata);
+            return;
+        }
+
+        //3. Create new metadata for derived pointer
+        PointerMetadata derived_metadata;
+        derived_metadata.id = id;
+        derived_metadata.generation = src_metadata->generation;
+        derived_metadata.points_to = derived_value;
+        derived_metadata.location = dst_location;
+        derived_metadata.reassign_flag = 0;
+
+        //4. Store the new pointer metadata in the global array
+        if(memcpy(&ptr_metadata[id], &derived_metadata, sizeof(derived_metadata)) == NULL) {
+            exit(0);
+        }
+        write_event_log(POINTER_ARITHMETIC, src_metadata, &ptr_metadata[id]);
+        
+        id++;
+}
+
+PointerMetadata *resolve_metadata(void *location, void *value) {
+    for(int i = 0; i < id; i++){
+        if(ptr_metadata[i].location == location &&
+            ptr_metadata[i].points_to == value){
+            return &ptr_metadata[i];
+        }
+    }
+    return NULL;
+}
