@@ -62,10 +62,12 @@ void record_malloc(void *ptr, size_t size, void *ptr_location){
 
     //4. Write allocation generation creation to event log, and store log ID
     if(reuse_flag == 0){
-        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION, &alloc_gens[current_generation], NULL);
+        alloc_gens[current_generation].creation_event_id = 
+            write_event_log(GENERATION_CREATION, &alloc_gens[current_generation], NULL);
     }
     else{
-        alloc_gens[current_generation].creation_event_id = write_event_log(GENERATION_CREATION_REUSE, &alloc_gens[current_generation], NULL);
+        alloc_gens[current_generation].creation_event_id = 
+            write_event_log(GENERATION_CREATION_REUSE, &alloc_gens[current_generation], NULL);
     }
     
     current_generation++; 
