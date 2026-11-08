@@ -1,3 +1,28 @@
 /tools/*
 /classification-algorithm/*
 /.vscode/*
+# CMake / Ninja build directory
+/instrumentation/build/
+
+# Runtime output
+/instrumentation/event_log.bin
+
+# Generated LLVM bitcode
+*.bc
+
+# Generated LLVM IR
+*.ll
+
+# Compiled test executables
+/instrumentation/test-instrumented
+
+# Debugging artifacts
+core
+core.*
+*.core
+
+# Editor / temporary files
+*.swp
+*.swo
+*~
+instrumentation/build/libCallScan.so
