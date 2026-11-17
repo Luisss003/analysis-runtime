@@ -190,10 +190,31 @@ int write_event_log(EventType event_type, void *ptr, void *ptr2){
             exit(0);
         }
     }
+    else if(event_type == MEM_READ) {
+        PointerMetadata *src = (PointerMetadata *)ptr;
+        int written = snprintf(final_log, 255 ,"[EventType=mr,EventID=%d,Pointer=%p]\n", 
+            event_id, 
+            src->points_to);
+        if(write(event_log_fd, final_log, written) == -1){
+            perror("Failed to write to event log file");
+            exit(0);
+        }
+    }
+    else if(event_type == MEM_READ_STALE) {
+        PointerMetadata *src = (PointerMetadata *)ptr;
+        int written = snprintf(final_log, 255 ,"[EventType=msr,EventID=%d,Pointer=%p]\n", 
+            event_id, 
+            src->points_to);
+        if(write(event_log_fd, final_log, written) == -1){
+            perror("Failed to write to event log file");
+            exit(0);
+        }
+    }
     else{
         fprintf(stderr, "Unknown event type: %d\n", event_type);
         exit(0);
     }
+    
     int ret = event_id;
     event_id++;
     return ret;

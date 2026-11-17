@@ -7,6 +7,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/IR/DataLayout.h"
 
 using namespace llvm;
 
@@ -144,6 +145,22 @@ struct CallScan : PassInfoMixin<CallScan> {
             )
         );
 
+        FunctionCallee mem_read =
+        M.getOrInsertFunction(
+            "mem_read",
+            FunctionType::get(
+                VoidTy,
+                {
+                    PtrTy, // src_location
+                    PtrTy, // src_value
+                    PtrTy, // dst_location
+                    PtrTy, // dst_value
+                    I64Ty  // read_size
+                },
+                false
+            )
+        );
+
         SmallVector<Instruction *, 128> WorkList;
 
         // Store all instructs in module for processing.
@@ -159,6 +176,127 @@ struct CallScan : PassInfoMixin<CallScan> {
 
         for (Instruction *I : WorkList) {
 
+            if(auto *Load = dyn_cast<LoadInst>(I)) {
+
+                    // Currently support ordinary address-space-0 reads.
+                    if (Load->getPointerAddressSpace() != 0)
+                        continue;
+
+                    Type *LoadedType = Load->getType();
+
+                    if (!LoadedType->isSized())
+                        continue;
+
+                    TypeSize Size =
+                        M.getDataLayout().getTypeStoreSize(LoadedType);
+
+                    // Scalable vector sizes require separate handling.
+                    if (Size.isScalable())
+                        continue;
+
+                    uint64_t ReadSize = Size.getFixedValue();
+
+                    if (ReadSize == 0)
+                        continue;
+
+                    Instruction *Next = Load->getNextNode();
+
+                    if (!Next)
+                        continue;
+
+                    IRBuilder<> Builder(Next);
+
+                    // -----------------------------------
+                    // Source address and provenance
+                    // -----------------------------------
+
+                    // Actual address being dereferenced.
+                    Value *SourceValue = Load->getPointerOperand();
+
+                    // Trace through GEPs to find the base pointer.
+                    Value *BasePointer = getGEPBase(SourceValue);
+
+                    // Resolve the storage location from which the
+                    // base pointer was loaded, if observable.
+                    Value *SourceLocation =
+                        getSourceLocation(BasePointer, Builder);
+
+                    if (!SourceLocation ||
+                        SourceLocation->getType()
+                            ->getPointerAddressSpace() != 0) {
+
+                        SourceLocation =
+                            ConstantPointerNull::get(PtrTy);
+                    }
+
+                    // -----------------------------------
+                    // Destination location
+                    // -----------------------------------
+
+                    Value *DestinationLocation =
+                        ConstantPointerNull::get(PtrTy);
+
+                    // Handle the straightforward pattern:
+                    //
+                    // %x = load i8, ptr %src
+                    // store i8 %x, ptr %dst
+                    //
+                    // More complex uses of the loaded SSA value
+                    // do not necessarily have one destination.
+                    if (auto *Store = dyn_cast<StoreInst>(Next)) {
+
+                        if (Store->getValueOperand() == Load &&
+                            Store->getPointerOperand()
+                                ->getType()
+                                ->getPointerAddressSpace() == 0) {
+
+                            DestinationLocation =
+                                Store->getPointerOperand();
+                        }
+                    }
+
+                    // -----------------------------------
+                    // Capture loaded value
+                    // -----------------------------------
+
+                    // A load can return an integer, floating-point
+                    // value, pointer, vector, etc.
+                    //
+                    // Allocate temporary storage so dst_value
+                    // always points to the loaded bytes.
+                    IRBuilder<> EntryBuilder(
+                        &*Load->getFunction()
+                            ->getEntryBlock()
+                            .getFirstInsertionPt()
+                    );
+
+                    AllocaInst *ValueSnapshot =
+                        EntryBuilder.CreateAlloca(
+                            LoadedType,
+                            nullptr,
+                            "mem_read.snapshot"
+                        );
+
+                    // Copy the SSA result into the snapshot.
+                    Builder.CreateStore(Load, ValueSnapshot);
+
+                    // -----------------------------------
+                    // Runtime hook
+                    // -----------------------------------
+
+                    Builder.CreateCall(
+                        mem_read,
+                        {
+                            SourceLocation,
+                            SourceValue,
+                            DestinationLocation,
+                            ValueSnapshot,
+                            ConstantInt::get(I64Ty, ReadSize)
+                        }
+                    );
+
+                    continue;
+            }
             if (auto *Store = dyn_cast<StoreInst>(I)) {
 
                 Value *Stored = Store->getValueOperand();

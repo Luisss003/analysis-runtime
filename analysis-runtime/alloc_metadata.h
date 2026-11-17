@@ -3,13 +3,8 @@
 
 #include <sys/types.h>
 #include "pointer_analysis.h"
+#include "metadata_types.h"
 
-//Allocation Metadata
-typedef enum {
-    UNKNOWN,
-    LIVE,
-    FREED,
-}ALLOC_STATE;
 
 typedef struct AllocationGeneration {
     size_t generation;

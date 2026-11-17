@@ -125,6 +125,38 @@ void ptr_arithmetic( void *src_location, void *src_value, void *derived_value,
         id++;
 }
 
+/**
+ * We can define a memory read as using a pointer to retrieve a value from
+ * memory. The destination is irrelevant in this case. This means we only
+ * call this function on load instructions.
+ */
+void mem_read(void *src_location, void *src_value, void *dst_location, void *dst_value, size_t read_size){
+    //1. Find the original pointer metadata
+    PointerMetadata *src_metadata =
+        resolve_metadata(src_location, src_value);
+
+    if (src_metadata == NULL) {
+        fprintf(stderr,
+            "mem_read fail: src_location=%p, src_value=%p, size=%zu\n",
+            src_location,
+            src_value,
+            read_size
+        );
+        return;
+    }
+
+
+    //2. Determine if pointer is referring to a stale AG
+    //A valid memory access
+    ALLOC_STATE state = resolve_state(src_metadata->generation);
+    if(state == LIVE) {
+        write_event_log(MEM_READ, src_metadata, NULL);
+    }
+    else if(state == FREED) {
+        write_event_log(MEM_READ_STALE, src_metadata, NULL);
+    }
+}
+
 PointerMetadata *resolve_metadata(void *location, void *value) {
     for(int i = 0; i < id; i++){
         if(ptr_metadata[i].location == location &&
@@ -133,4 +165,15 @@ PointerMetadata *resolve_metadata(void *location, void *value) {
         }
     }
     return NULL;
+}
+
+ALLOC_STATE resolve_state(size_t generation){
+    int i = 0;
+    while(alloc_gens[i].usable_base != NULL) {
+        if(alloc_gens[i].generation == generation){
+            return alloc_gens[i].state;
+        }
+        i++;
+    }
+    return UNKNOWN;
 }

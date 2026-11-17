@@ -1,15 +1,10 @@
 #ifndef POINTER_ANALYSIS_H
 #define POINTER_ANALYSIS_H
 
-struct AllocationGeneration;
+#include <sys/types.h>
+#include "metadata_types.h"
 
-typedef struct  {
-    int id;
-    int generation; //The generation that the pointer is associated with
-    void *points_to; //addr the pointer points to
-    void *location; //The address of where the pointer resides
-    int reassign_flag; //Determine if a pointer was reassigned to a new value in its lifetime
-} PointerMetadata;
+struct AllocationGeneration;
 
 extern int id;
 
@@ -22,6 +17,8 @@ void ptr2int(void *ptr);
 void int2ptr(int ptr);
 void ptr_casting(void *ptr);
 
-PointerMetadata *resolve_metadata(void *location, void *value);
+void mem_read(void *src_location, void *src_value, void *dst_location, void *dst_value, size_t read_size);
 
+PointerMetadata *resolve_metadata(void *location, void *value);
+ALLOC_STATE resolve_state(size_t generation);
 #endif
